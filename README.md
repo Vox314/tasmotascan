@@ -1,11 +1,30 @@
 # Tasmota Scan
 
-A python script that scans the local network for tasmota devices.
+A Python script that scans the local network for Tasmota devices.
 
 ## Requirements
 
-Python 3.11
+- Python 3.11 or higher
+
+## Installation
+
+1. Clone the repository:
+
+    ```bash
+    git clone https://github.com/yourusername/tasmota-scan.git
+    cd tasmota-scan
+    ```
+
+2. Install the required dependencies:
+
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+## Usage
+
+Run the script to scan for Tasmota devices on your local network:
 
 ```bash
-pip install -r requirements.txt
+python tasmota_scan.py
 ```

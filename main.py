@@ -1,62 +1,69 @@
-import httpx, json, asyncio, netifaces
+import asyncio
+import json
+from typing import List, Tuple, Optional
 
-def get_network_prefix():
+import httpx
+import netifaces
+
+def get_network_prefix() -> str:
+    """Get the network prefix from the default gateway."""
     gateways = netifaces.gateways()
     default_gateway = gateways['default'][netifaces.AF_INET][0]
-
     octets = default_gateway.split(".")
-
-    # Join the first three octets to form the network prefix
     network_prefix = ".".join(octets[:3])
-
     return network_prefix
 
-async def fetch_tasmota_device(link):
+async def fetch_tasmota_device(link: int) -> Optional[Tuple[str, str, str]]:
+    """Fetch the Tasmota device status from a given IP link."""
+    network_prefix = get_network_prefix()
+    ip = f"{network_prefix}.{link}"
+    endpoint = f"http://{ip}/cm?cmnd=STATUS"
+    
     try:
-        endpoint = f"http://{get_network_prefix()}.{link}/cm?cmnd=STATUS"
-        ip = f"{get_network_prefix()}.{link}"
         async with httpx.AsyncClient() as client:
             response = await client.get(endpoint)
-
-            # Check if the response starts with the expected string
             startstr = '{"Status":{"Module"'
             if response.text.startswith(startstr):
                 data = json.loads(response.text)
                 device_name = data.get("Status", {}).get("DeviceName", "Unknown")
                 friendly_name = data.get("Status", {}).get("FriendlyName", ["Unknown"])[0]
                 return ip, device_name, friendly_name
-    except (httpx.RequestError, json.JSONDecodeError, TimeoutError) as e:
-        # print(f"Request Error occurred for {ip}: {e}") # Uncomment to see full request information
-        return None
+    except (httpx.RequestError, json.JSONDecodeError, TimeoutError):
+        pass
+    return None
 
-async def main(raw_data: bool=False) -> list:
+async def main(raw_data: bool = False) -> List[Tuple[str, str, str]]:
     """
-    If `raw_data` is set to `True`,\ 
-    this function will return a `list` of `tasmota_devices` on the local network.
+    Discover Tasmota devices on the local network.
 
-    Else it will just print out the preformatted table and return an empty string `''`.
+    If `raw_data` is True, return a list of discovered Tasmota devices.
+    Otherwise, print a formatted table of discovered devices and return an empty list.
     """
     tasks = [fetch_tasmota_device(i) for i in range(1, 256)]
     tasmota_devices = await asyncio.gather(*tasks)
-    tasmota_devices = [dev for dev in tasmota_devices if dev]  # Remove None results
+    tasmota_devices = [dev for dev in tasmota_devices if dev]
 
-    if raw_data==True:
+    if raw_data:
         return tasmota_devices
 
     print("\nTasmota devices found:")
 
-    # Calculate the maximum lengths for each column
-    max_ip_length = max(len(ip) for ip, _, _ in tasmota_devices)
-    max_device_name_length = max(len(device_name) for _, device_name, _ in tasmota_devices)
-    max_friendly_name_length = max(len(friendly_name) for _, _, friendly_name in tasmota_devices)
+    if tasmota_devices:
+        # Calculate the maximum lengths for each column
+        max_ip_length = max(len(ip) for ip, _, _ in tasmota_devices)
+        max_device_name_length = max(len(device_name) for _, device_name, _ in tasmota_devices)
+        max_friendly_name_length = max(len(friendly_name) for _, _, friendly_name in tasmota_devices)
 
-    # Print the formatted table
-    for i, (ip, device_name, friendly_name) in enumerate(tasmota_devices, start=1):
-        print(f"{i:2} | IP: {ip:{max_ip_length}} | Device Name: {device_name:{max_device_name_length}} | Friendly Name: {friendly_name:{max_friendly_name_length}}")
+        # Print the formatted table
+        for i, (ip, device_name, friendly_name) in enumerate(tasmota_devices, start=1):
+            print(f"{i:2} | IP: {ip:{max_ip_length}} | Device Name: {device_name:{max_device_name_length}} | Friendly Name: {friendly_name:{max_friendly_name_length}}")
+    else:
+        print("No Tasmota devices found.")
 
-    return '' # Returns empty string instead of None
+    return []
 
 if __name__ == "__main__":
     print("Please wait, this might take a while.")
     data = asyncio.run(main(raw_data=False))
-    print(data)
+    if data:
+        print(data)
