@@ -1,4 +1,4 @@
-# ScanTasmota
+# Tasmota Scan
 
 A python script that scans the local network for tasmota devices.
 
