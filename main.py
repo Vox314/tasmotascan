@@ -1,8 +1,20 @@
-import httpx, json, asyncio
+import httpx, json, asyncio, netifaces
 
-async def fetch_tasmota_device(ip):
+def get_network_prefix():
+    gateways = netifaces.gateways()
+    default_gateway = gateways['default'][netifaces.AF_INET][0]
+
+    octets = default_gateway.split(".")
+
+    # Join the first three octets to form the network prefix
+    network_prefix = ".".join(octets[:3])
+
+    return network_prefix
+
+async def fetch_tasmota_device(link):
     try:
-        endpoint = f"http://{ip}/cm?cmnd=STATUS"
+        endpoint = f"http://{get_network_prefix()}.{link}/cm?cmnd=STATUS"
+        ip = f"{get_network_prefix()}.{link}"
         async with httpx.AsyncClient() as client:
             response = await client.get(endpoint)
 
@@ -24,7 +36,7 @@ async def main(raw_data: bool=False) -> list:
 
     Else it will just print out the preformatted table and return an empty string `''`.
     """
-    tasks = [fetch_tasmota_device(f"192.168.178.{i}") for i in range(1, 256)]
+    tasks = [fetch_tasmota_device(i) for i in range(1, 256)]
     tasmota_devices = await asyncio.gather(*tasks)
     tasmota_devices = [dev for dev in tasmota_devices if dev]  # Remove None results
 
