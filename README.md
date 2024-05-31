@@ -26,5 +26,5 @@ A Python script that scans the local network for Tasmota devices.
 Run the script to scan for Tasmota devices on your local network:
 
 ```bash
-python tasmota_scan.py
+python main.py
 ```
